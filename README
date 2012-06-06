@@ -1,0 +1,50 @@
+===
+dlx
+===
+:Author: jw013
+:Date: 2012
+:Version: 0.1
+
+This is a general purpose library written in ISO C90 for solving Exact Matrix
+Cover problems using Donald Knuth's Dancing Links (DLX) algorithm.  Knuth's
+paper on DLX is freely available online, in particular on his 
+`preprints page <http://www-cs-faculty.stanford.edu/~uno/preprints.html>`_
+under "Dancing Links".
+
+See the comments in dlx.c for more details on the provided functions.  The DLX
+matrix as described by Knuth is implemented using ``dlx_node``'s for its
+elements.  In addition, a header node (``dlx_hnode``) is required for each
+column, along with an additional root node, which can be another ``dlx_hnode``.
+The node struct's declared in the header file are provided merely to allow
+static allocation, and the internal fields are meant to be private.  
+
+Quickstart
+==========
+To get started, allocate sufficient space for a root node plus one header per
+column, and use ``dlx_make_headers()`` to initialize the data members and
+connect the links.
+
+Then, build the matrix one row at a time.  Allocate space for each row of
+nodes, initialize the row nodes with ``dlx_make_row()``, and then add the row
+to the matrix with ``dlx_add_row()``.  
+
+Once the adding is done, you have the option of pruning the matrix by
+eliminating rows.  The function ``dlx_force_row()``, as its name suggests,
+manually selects a row for the solution, and does a cover operation (as
+described by Knuth) on every column the selected row covers.  The inverse
+function ``dlx_unselect_row()`` is provided for backtracking.
+
+Once the setup is complete, the matrix is ready for ``dlx_exact_cover()``.
+This is a multi-purpose function, whose behavior is controlled by the value of
+the argument ``*pnsol``.  To simply return the first solution found (if one
+exists), use a value of 1 for ``*pnsol``.  By specifying a value of ``*pnsol``
+greater than 1, ``dlx_exact_cover()`` will skip ``*pnsol - 1`` solutions, only
+returning the ``*pnsol``th solution, if it exists.  The value of ``*pnsol``
+will be decremented for each solution found.  One can check whether the matrix
+has a unique solution by calling ``dlx_exact_cover`` with ``*pnsol`` set to 2.
+If the value is 1 upon return, then exactly one solution exists.
+
+The ``dlx_read_matrix()`` function implemented in the ``dlx_read`` module
+provides an alternate approach for building a DLX matrix, by reading the matrix
+in from a text stream.  The input format must only consist of the digits 0 or
+1, and newline characters, with newlines delimiting rows.
