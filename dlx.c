@@ -9,6 +9,8 @@
  * All algorithms taken straight out of Knuth's DLX paper, translated fairly
  * literally into C.
  *
+ * Comments for public API functions can be found in the header file dlx.h.
+ *
  * Summary of fundamental idea behind Knuth's DLX algorithm:
  * (1) Remove x from list:
  *	x->left->right = x->right;
@@ -188,15 +190,6 @@ hnode_min_count(struct dlx_hnode *root)
  * @{
  */
 
-/**
- * Cover all columns that row r covers.
- *
- * This can be useful if you want to force a certain row to be included in the
- * solution (hence the name).
- *
- * @return 	0 on success, -1 if r has already been removed from the matrix and
- * 		cannot be selected.
- */
 int
 dlx_force_row(struct dlx_node *r)
 {
@@ -208,14 +201,6 @@ dlx_force_row(struct dlx_node *r)
 	return 0;
 }
 
-/**
- * Inverse operation of dlx_force_row.
- *
- * Must be called in exact reverse order as calls to dlx_force_row for matrix
- * links to be restored properly.
- *
- * @return 0 on success, -1 if r is still in the matrix.
- */
 int
 dlx_unselect_row(struct dlx_node *r)
 {
@@ -234,17 +219,6 @@ dlx_unselect_row(struct dlx_node *r)
  * @{
  */
 
-/**
- * Set up the header nodes for a DLX matrix by connecting the array of n
- * pre-allocated column headers and the root node into a circularly linked
- * list (oriented left-right, as a row).
- *
- * The id members of the nodes are left un-touched.
- *
- * @param root		pointer to root node
- * @param headers	pre-allocated array of n header nodes
- * @param n		number of column headers, not including root node
- */
 void
 dlx_make_header_row(struct dlx_hnode *root, struct dlx_hnode *headers, size_t n)
 {
@@ -329,13 +303,6 @@ dlx_make_header_row(struct dlx_hnode *root, struct dlx_hnode *headers, size_t n)
 	((struct dlx_hnode *) hi)->node_count = 1;
 }
 
-/**
- * Set up the nodes for a DLX matrix by connecting the array of n pre-allocated
- * nodes into a circularly linked list (oriented left-right, as a row).
- *
- * @param nodes		pre-allocated array of n nodes
- * @param n		number of nodes in the row nodes[]
- */
 void
 dlx_make_row(struct dlx_node *nodes, void *row_id, size_t n)
 {
@@ -376,17 +343,6 @@ dlx_make_row(struct dlx_node *nodes, void *row_id, size_t n)
 	ni->row_id	= row_id;
 }
 
-/**
- * Add pre-initialized row to the DLX matrix by appending each row node in the
- * array to the corresponding column.
- *
- * @param nodes		row nodes to append
- * @param headers	parallel array to nodes of pointers to headers of
- * 			columns to which the row nodes will be appended.  Must
- * 			have the same number of elements as nodes and the
- * 			headers must occur in the same order.
- * @param n		number of nodes in row
- */
 void
 dlx_add_row(struct dlx_node *nodes, struct dlx_hnode **headers, size_t n)
 {
@@ -402,43 +358,33 @@ dlx_add_row(struct dlx_node *nodes, struct dlx_hnode **headers, size_t n)
  * @{
  */
 
-/**
- * Exact cover DLX algorithm by D. Knuth, with some modification to allow for
- * skipping over a specified number of solutions.
- *
- * @param solution
- * 		Make sure to allocate enough space to contain the largest
- * 		possible cover solution to prevent buffer overflow.
- * @param root	pointer to root node of a valid DLX matrix structure.  The
- * 		matrix is modified by the function, but is restored to its
- * 		original state before the function returns.
- * @param k	must be 0; value is used internally.
- * @param pnsol	pointer to a value specifying the number of solutions to look
- * 		for.  The pointed to value will be decremented by the number of
- * 		solutions found, to a minimum of 0, and must be positive
- * 		initally.  The behavior of the function when *pnsol is zero is
- * 		undefined and most likely undesirable.
- * @return 	size of *pnsol'th solution, or 0 if not that many solutions
- * 		exist.  Note that the 0 case is ambiguous for an empty matrix,
- * 		which has a solution of size 0, but handling that situation is
- * 		left to the caller.
- */
-size_t
-dlx_exact_cover(struct dlx_srow *solution, struct dlx_hnode *root,
-		size_t k, size_t *pnsol)
-{
+size_t dlx_exact_cover(struct dlx_srow *solution, struct dlx_hnode *root,
+		size_t k, size_t *pnsol) {
 	/*
-	 * Base cases: Recursion ends when either
-	 *   * matrix is empty (success: entire matrix has been covered)
-	 *   * empty column is found (failure: uncover-able column)
-	 * Recursive/branching step:
-	 *   * select column with fewest candidate rows
-	 *   * select a row within that column for the solution
-	 *   * recurse
+	 * Base cases: Recursion ends when either * matrix is empty (success:
+	 * entire matrix has been covered) * empty column is found (failure:
+	 * uncover-able column) Recursive/branching step: * select column with
+	 * fewest candidate rows * select a row within that column for the
+	 * solution * recurse
+	 *
+	 * In addition, every time a solution is found (base case 1), the value
+	 * *pnsol is decremented, and when it reaches 0, an additional base
+	 * case is triggered which terminates the recursion and unrolls the
+	 * entire call stack.  If this 3rd base case is unreachable (because
+	 * not enough solutions exist), then the second base case will be
+	 * reached repeatedly until eventually the entire recursive algorithm
+	 * will run out of branches to take, and the return value of 0 will be
+	 * passed all the way up the call stack.
+	 *
+	 * There is a question of whether or not the same solution (i.e. a set
+	 * of rows where the order does not matter) can be found and counted
+	 * multiple times during the course of the backtracking algorithm.  My
+	 * hunch is the answer is no, but this is not formally proven.
 	 */
+
 	size_t n = 0;		/* return value, default 0 := no solution */
-	struct dlx_node *i;	/* iterator pointer */
-	struct dlx_node *col;	/* column to cover in this iteration */
+	struct dlx_node *i;	/* iterator pointer */ struct dlx_node *col;
+	/* column to cover in this iteration */
 
 	/* root->right == root means empty matrix */
 	if (((struct dlx_node *) root)->right == (struct dlx_node *) root) {
@@ -449,7 +395,7 @@ dlx_exact_cover(struct dlx_srow *solution, struct dlx_hnode *root,
 	col = (struct dlx_node *) hnode_min_count(root);
 	cover(col);
 
-	solution[k].id		= ((struct dlx_hnode *) col)->id;
+	solution[k].cid		= ((struct dlx_hnode *) col)->id;
 	solution[k].n_choices	= ((struct dlx_hnode *) col)->node_count;
 
 	/* try selecting each row in the column one at a time and recurse */
@@ -473,10 +419,6 @@ dlx_exact_cover(struct dlx_srow *solution, struct dlx_hnode *root,
 
 /* misc @{ */
 
-/**
- * @param node
- * @return Pointer to row id of the row, or NULL of node is null.
- */
 void *
 dlx_row_id(struct dlx_node *node)
 {
