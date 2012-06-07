@@ -180,9 +180,12 @@ size_t_darray_size(struct size_t_darray *array)
  * [1]: https://en.wikipedia.org/wiki/Sparse_matrix
  */
 struct binary_csr_matrix {
-	size_t  row_ptr_size;	/* number of rows, m + 1 */
+	size_t row_ptr_size;	/* (number of rows, m) + 1 */
 	size_t *col_ind;	/* column indices of each non-zero value */
-	size_t *row_ptr;	/* row pointers; last entry is size of col_ind */
+	size_t *row_ptr;	/* row pointers; last entry is size of col_ind
+				 * row i is located from
+				 * col_ind[row_ptr[i]] ... col_ind[row_ptr[i + 1]]
+				 */
 };
 
 /**
@@ -299,23 +302,23 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 static int
 bcsr_to_dlx(struct binary_csr_matrix *csr, struct dlx_matrix *dlx, size_t ncols)
 {
-	struct dlx_hnode **pheaders;
+	struct dlx_hnode **headerptrs;
 	size_t i, j;
 	size_t ri_start, ri_end;
 
-	if ((dlx->headers = calloc(ncols, sizeof *dlx->headers)) &&
-			(dlx->nodes = calloc(csr->row_ptr[csr->row_ptr_size - 1],
-					     sizeof *dlx->nodes)) &&
-			(dlx->row_off = calloc(csr->row_ptr_size,
-					       sizeof *dlx->row_off)) &&
-			(pheaders = calloc(ncols, sizeof *pheaders))) {
+	if (	(dlx->headers = calloc(ncols, sizeof *dlx->headers))
+	     && (dlx->nodes   = calloc(csr->row_ptr[csr->row_ptr_size - 1],
+					     sizeof *dlx->nodes))
+	     && (dlx->row_off = calloc(csr->row_ptr_size, sizeof *dlx->row_off))
+	     && (headerptrs   = calloc(ncols, sizeof *headerptrs))
+	) {
 		/* all allocations succeeded */
 	} else {
 		/* an allocation failed, abort */
 		free(dlx->headers);
 		free(dlx->nodes);
 		free(dlx->row_off);
-		free(pheaders);
+		free(headerptrs);
 		return -DLXR_EALLOC;
 	}
 
@@ -327,17 +330,17 @@ bcsr_to_dlx(struct binary_csr_matrix *csr, struct dlx_matrix *dlx, size_t ncols)
 		ri_start = csr->row_ptr[i];
 		ri_end = csr->row_ptr[i + 1];
 		for (j = ri_start; j < ri_end; j++)
-			pheaders[j - ri_start] = dlx->headers + csr->col_ind[j];
+			headerptrs[j - ri_start] = dlx->headers + csr->col_ind[j];
 		dlx_make_row(dlx->nodes + ri_start, dlx->row_off + i,
 				ri_end - ri_start);
-		dlx_add_row(dlx->nodes + ri_start, pheaders, ri_end - ri_start);
+		dlx_add_row(dlx->nodes + ri_start, headerptrs, ri_end - ri_start);
 		dlx->row_off[i + 1] = ri_end;
 	}
 
 	dlx->n_col = ncols;
 	dlx->n_row = csr->row_ptr_size - 1;
 
-	free(pheaders);
+	free(headerptrs);
 	return DLXR_ESUCCESS;
 }
 
