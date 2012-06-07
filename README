@@ -104,15 +104,18 @@ DLX
   prefix.  The presence of such a prefix in the code does not
   necessarily imply that the symbol is external though.
 
-darray
-  dynamic array, as in an array whose size dynamically grows as items
-  are appended to it; used by the ``dlx_read_matrix`` module.
-
 CSR, CRS
   *Compressed sparse row* or *Compressed row storage*, a compact format
   for storing sparse matrices.  The ``dlx_read_matrix`` uses a
   simplified version of this for binary matrices as an intermediate
   format.
+
+darray
+  dynamic array, as in an array whose size dynamically grows as items
+  are appended to it; used by the ``dlx_read_matrix`` module.
+
+ret
+  return value (typically)
 
 srow
   solution row
