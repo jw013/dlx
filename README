@@ -5,46 +5,106 @@ dlx
 :Date: 2012
 :Version: 0.1
 
-This is a general purpose library written in ISO C90 for solving Exact Matrix
-Cover problems using Donald Knuth's Dancing Links (DLX) algorithm.  Knuth's
-paper on DLX is freely available online, in particular on his 
-`preprints page <http://www-cs-faculty.stanford.edu/~uno/preprints.html>`_
-under "Dancing Links".
+This is a general purpose library written in ISO C99 for solving Exact
+Matrix Cover problems using Donald Knuth's Dancing Links (DLX)
+algorithm.  Knuth's paper on DLX is freely available online, in
+particular on his `preprints page
+<http://www-cs-faculty.stanford.edu/~uno/preprints.html>`_ under
+"Dancing Links".
 
-See the comments in dlx.c for more details on the provided functions.  The DLX
-matrix as described by Knuth is implemented using ``dlx_node``'s for its
-elements.  In addition, a header node (``dlx_hnode``) is required for each
-column, along with an additional root node, which can be another ``dlx_hnode``.
-The node struct's declared in the header file are provided merely to allow
-static allocation, and the internal fields are meant to be private.  
+Data Types
+==========
+
+See the comments in ``dlx.c`` for more details on the provided
+functions.  The DLX matrix as described by Knuth is implemented using
+``struct dlx_node``'s for its elements.  In addition, a header node
+(``struct dlx_hnode``) is required for each column, along with an
+additional root node, which can be another ``dlx_hnode``.  The node
+struct's declared in the header file are provided merely to allow static
+allocation, and the internal fields are meant to be private, i.e. not to
+be accessed by application code.
+
+The ``struct dlx_srow`` type contains extra information about solution
+that may be useful for hints or shed further light on the path taken to
+find the solution.  All members of this struct are public.  I am not
+sure how this information can be used, but more may be added in the
+future.
 
 Quickstart
 ==========
 To get started, allocate sufficient space for a root node plus one header per
 column, and use ``dlx_make_headers()`` to initialize the data members and
-connect the links.
+connect the links::
 
-Then, build the matrix one row at a time.  Allocate space for each row of
-nodes, initialize the row nodes with ``dlx_make_row()``, and then add the row
-to the matrix with ``dlx_add_row()``.  
+    struct dlx_hnode root;
+    size_t ncol = /* number of columns */;
+    struct dlx_hnode *headers = /* allocate ncol dlx_hnode's */;
+    dlx_make_headers(&root, headers, NCOLS);
 
-Once the adding is done, you have the option of pruning the matrix by
-eliminating rows.  The function ``dlx_force_row()``, as its name suggests,
-manually selects a row for the solution, and does a cover operation (as
-described by Knuth) on every column the selected row covers.  The inverse
-function ``dlx_unselect_row()`` is provided for backtracking.
+Then, build the matrix one row at a time.  Allocate space for each row
+of nodes, initialize the row nodes with ``dlx_make_row()``, and then add
+the row to the matrix with ``dlx_add_row()``::
 
-Once the setup is complete, the matrix is ready for ``dlx_exact_cover()``.
-This is a multi-purpose function, whose behavior is controlled by the value of
-the argument ``*pnsol``.  To simply return the first solution found (if one
-exists), use a value of 1 for ``*pnsol``.  By specifying a value of ``*pnsol``
-greater than 1, ``dlx_exact_cover()`` will skip ``*pnsol - 1`` solutions, only
-returning the ``*pnsol``th solution, if it exists.  The value of ``*pnsol``
-will be decremented for each solution found.  One can check whether the matrix
-has a unique solution by calling ``dlx_exact_cover`` with ``*pnsol`` set to 2.
-If the value is 1 upon return, then exactly one solution exists.
+    size_t n = /* number of nodes in the row */;
+    struct dlx_node *row = /* allocate space for n nodes */;
+    dlx_make_row(row, n);
 
-The ``dlx_read_matrix()`` function implemented in the ``dlx_read`` module
-provides an alternate approach for building a DLX matrix, by reading the matrix
-in from a text stream.  The input format must only consist of the digits 0 or
-1, and newline characters, with newlines delimiting rows.
+Once the row-adding is done, you have the option of pruning the matrix
+by eliminating rows.  The function ``dlx_force_row()``, as its name
+suggests, manually selects a row for the solution, and does a cover
+operation (as described by Knuth) on every column the selected row
+covers.  The inverse function ``dlx_unselect_row()`` is provided for
+backtracking::
+
+    struct dlx_node *forced_row_node = /* node in row to select */;
+    if (dlx_force_row(forced_row_node) != 0)
+            /* error, forced_row_node already removed */;
+
+Once the setup is complete, the matrix is ready for
+``dlx_exact_cover()``.  This is a multi-purpose function, whose behavior
+is controlled by the value of the argument ``*pnsol``.  To simply return
+the first solution found (if one exists), use a value of 1 for
+``*pnsol``.  By specifying a value of ``*pnsol`` greater than 1,
+``dlx_exact_cover()`` will skip ``*pnsol - 1`` solutions, only returning
+the ``*pnsol``'th solution, if it exists.  The value of ``*pnsol`` will
+be decremented for each solution found.  If I am not mistaken, the
+backtracking algorithm can never traverse a solution twice, where a
+solution is a set of rows in any order.  *If* this is true, one can
+check whether the matrix has a unique solution by calling
+``dlx_exact_cover`` with ``*pnsol`` set to 2.  If the value is 1 upon
+return, then exactly one solution exists.
+
+::
+
+    size_t nsol = 1;
+    struct dlx_srow *solution = /* allocate enough space for the
+                                 * largest possible solution */;
+    if (dlx_exact_cover(solution, &root, 0, &nsol) == 0)
+            /* since nsol was 1, no solution was found */;
+
+The ``dlx_read_matrix()`` function implemented in the ``dlx_read``
+module provides an alternate approach for building a DLX matrix, by
+reading it from a text stream.  The input format must only consist of
+the digits 0 or 1 and newline characters, with newlines delimiting
+rows.  Trailing 0's may be omitted from each row, since the width of the
+widest row found is used as the overall matrix column count.
+
+Glossary
+========
+
+Because I don't like trying to figure out other people's abbreviations.
+
+DLX
+  Dancing Links.  All publicly exported symbols should have a ``dlx_``
+  prefix.  The presence of such a prefix in the code does not
+  necessarily imply that the symbol is external though.
+
+darray
+  dynamic array, as in an array whose size dynamically grows as items
+  are appended to it; used by the ``dlx_read_matrix`` module.
+
+CSR, CRS
+  *Compressed sparse row* or *Compressed row storage*, a compact format
+  for storing sparse matrices.  The ``dlx_read_matrix`` uses a
+  simplified version of this for binary matrices as an intermediate
+  format.
