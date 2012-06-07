@@ -30,6 +30,11 @@ find the solution.  All members of this struct are public.  I am not
 sure how this information can be used, but more may be added in the
 future.
 
+Since any complete DLX matrix requires a header node, a set of column
+headers (``dlx_hnode``), and a set of nodes (``dlx_node``), the
+``dlx_matrix`` struct is provided as a convenience to gather all such
+fields into a single record.  All members are public.
+
 Quickstart
 ==========
 To get started, allocate sufficient space for a root node plus one header per
@@ -108,3 +113,6 @@ CSR, CRS
   for storing sparse matrices.  The ``dlx_read_matrix`` uses a
   simplified version of this for binary matrices as an intermediate
   format.
+
+srow
+  solution row

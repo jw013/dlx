@@ -60,7 +60,8 @@ struct dlx_matrix {
 	struct dlx_hnode root;
 	struct dlx_hnode *headers;
 	struct dlx_node *nodes;
-	size_t *row_off;	/* row_off[i] ... row_off[i+1] = row i's nodes */
+	size_t *row_off;	/* nodes[row_off[i]] ... nodes[row_off[i+1]]
+				   are row i's nodes */
 	size_t n_col;
 	size_t n_row;		/* number of rows = length of row_off - 1 */
 };
