@@ -9,30 +9,33 @@
  * ========
  * Common exit codes
  * Dynamic array code.
- * CSR matrix from text stream.
+ * Binary CSR matrix from text stream.
  * Building DLX matrx from CSR matrix.
  * Glue function: DLX from text stream
  */
 
 enum exit_code_t {
-	DLX_ESUCCESS,
-	DLX_EALLOC,		/* memory allocation error */
-	DLX_EDATAERR,	/* malformed input */
-	DLX_EIOERR
+	DLXR_ESUCCESS,
+	DLXR_EALLOC,		/* memory allocation error */
+	DLXR_EDATAERR,	/* malformed input */
+	DLXR_EIOERR
 };
 
 /* dynamic array @{ */
 
 /**
- * A dynamic array manager for managing memory allocation on a pointer that
- * automatically grows as needed.
+ * A dynamic array manager module for managing memory allocation on a pointer
+ * that automatically grows as needed.  This could be in a separate file
+ * ("translation unit") except it is only needed here, so there's no need to
+ * complicate the compilation process.
+ *
  * Only supports append and read operations.
  * Treat all members as private, except export allows access to *data.  Also,
  * the memory allocated for data is independent of the containing dynamic
  * array.  Make sure to export the pointer value before destroying the dynamic
  * array, as destroying a dynamic array does NOT free the contained data.
  */
-struct size_t_dyn_array {
+struct size_t_darray {
 	size_t sz_max;
 	size_t sz_cur;
 	size_t i_next;
@@ -40,15 +43,15 @@ struct size_t_dyn_array {
 };
 
 /**
- * Attempt to allocate a new size_t_dyn_array.
+ * Attempt to allocate a new size_t_darray.
  *
  * @param sz_initial	number of elements to allocate space for
- * @return NULL on failure, otherwise pointer to new dyn_array on success.
+ * @return NULL on failure, otherwise pointer to new darray on success.
  */
-static struct size_t_dyn_array *
-size_t_dyn_array_create(size_t sz_initial)
+static struct size_t_darray *
+size_t_darray_create(size_t sz_initial)
 {
-	struct size_t_dyn_array *array;
+	struct size_t_darray *array;
 
 	if ((array = malloc(sizeof(*array))) == NULL)
 		return NULL;
@@ -64,22 +67,22 @@ size_t_dyn_array_create(size_t sz_initial)
 }
 
 /**
- * Destroy a size_t_dyn_array object.  Does NOT free the data field, so make
+ * Destroy a size_t_darray object.  Does NOT free the data field, so make
  * sure to export before calling destroy.
  */
 static void
-size_t_dyn_array_destroy(struct size_t_dyn_array *array)
+size_t_darray_destroy(struct size_t_darray *array)
 {
 	free(array);
 }
 
 /**
  * Private.
- * Expand allocated storage for size_t_dyn_array.
+ * Expand allocated storage for size_t_darray.
  * @return -1 for memory allocation error, 0 for success.
  */
 static int
-size_t_dyn_array_grow(struct size_t_dyn_array *array)
+size_t_darray_grow(struct size_t_darray *array)
 {
 	size_t new_size;
 	void *new_ptr;
@@ -113,10 +116,10 @@ size_t_dyn_array_grow(struct size_t_dyn_array *array)
  * @return 0 on success, -1 on failure.
  */
 static int
-size_t_dyn_array_append(struct size_t_dyn_array *array, size_t val)
+size_t_darray_append(struct size_t_darray *array, size_t val)
 {
 	if (array->sz_cur > array->sz_max - sizeof(val)) {
-		if (size_t_dyn_array_grow(array) != 0)
+		if (size_t_darray_grow(array) != 0)
 			return -1;
 	}
 	array->data[array->i_next++] = val;
@@ -129,7 +132,7 @@ size_t_dyn_array_append(struct size_t_dyn_array *array, size_t val)
  * @return 0 on success, -1 on failure.
  */
 static int
-size_t_dyn_array_trim(struct size_t_dyn_array *array)
+size_t_darray_trim(struct size_t_darray *array)
 {
 	void *new_ptr;
 
@@ -146,7 +149,7 @@ size_t_dyn_array_trim(struct size_t_dyn_array *array)
  * @return data pointer
  */
 static size_t *
-size_t_dyn_array_export(struct size_t_dyn_array *array, size_t *length)
+size_t_darray_export(struct size_t_darray *array, size_t *length)
 {
 	if (length) *length = array->i_next;
 	return array->data;
@@ -156,7 +159,7 @@ size_t_dyn_array_export(struct size_t_dyn_array *array, size_t *length)
  * @return number of elements in array
  */
 static size_t
-size_t_dyn_array_size(struct size_t_dyn_array *array)
+size_t_darray_size(struct size_t_darray *array)
 {
 	return array->i_next;
 }
@@ -169,7 +172,7 @@ size_t_dyn_array_size(struct size_t_dyn_array *array)
  * Compressed row storage representation of a binary sparse matrix, a.k.a
  * compressed sparse row.  Since binary means the only possible non-zero value
  * is one, the array of values is unnecessary.  See the Wikipedia article on
- * sparse matrices[1].  The implementation limits the size of the sparse
+ * sparse matrices.[1]  The implementation limits the size of the sparse
  * representation to the range of the size_t type.
  *
  * All members are public.
@@ -202,10 +205,10 @@ struct binary_csr_matrix {
 static int
 read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 {
-	struct size_t_dyn_array *col_ind_dynarray;
-	struct size_t_dyn_array *row_ptr_dynarray;
+	struct size_t_darray *col_ind_darray;
+	struct size_t_darray *row_ptr_darray;
 	int c;
-	int ret = DLX_ESUCCESS;
+	int ret = DLXR_ESUCCESS;
 	size_t max_cols = 0;	/* width of widest row so far */
 	size_t col = 0;		/* number of columns in the current row so far */
 	int fl_newline = 1;	/* flag: last character was a newline or
@@ -213,39 +216,39 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 				   first in a new line */
 
 	/* initial sizes rather arbitrarily chosen */
-	if ((col_ind_dynarray = size_t_dyn_array_create(512)) == NULL ||
-			(row_ptr_dynarray = size_t_dyn_array_create(256)) == NULL)
-		return -DLX_EALLOC;
+	if ((col_ind_darray = size_t_darray_create(512)) == NULL ||
+			(row_ptr_darray = size_t_darray_create(256)) == NULL)
+		return -DLXR_EALLOC;
 
 	/* first row always starts at the first index (0) of col_ind */
-	size_t_dyn_array_append(row_ptr_dynarray, 0);
+	size_t_darray_append(row_ptr_darray, 0);
 	while ((c = getc(stream)) != EOF) {
 		if (c == '1') {
-			size_t_dyn_array_append(col_ind_dynarray, col++);
+			size_t_darray_append(col_ind_darray, col++);
 			fl_newline = 0;
 		} else if (c == '0') {
 			col++;
 			fl_newline = 0;
 		} else if (c == '\n') { /* EOL */
 			/* mark the end of the current row */
-			size_t_dyn_array_append(row_ptr_dynarray,
-					size_t_dyn_array_size(col_ind_dynarray));
+			size_t_darray_append(row_ptr_darray,
+					size_t_darray_size(col_ind_darray));
 			if (max_cols < col)
 				max_cols = col;
 			col = 0;
 			fl_newline = 1;
 		} else { /* invalid char */
-			ret = -DLX_EDATAERR;
+			ret = -DLXR_EDATAERR;
 			break;
 		}
 	}
 
 	if (c == EOF) {
 		if (ferror(stream)) {
-			ret = -DLX_EIOERR;
+			ret = -DLXR_EIOERR;
 		} else if (feof(stream) && !fl_newline) {
-			size_t_dyn_array_append(row_ptr_dynarray,
-					size_t_dyn_array_size(col_ind_dynarray));
+			size_t_darray_append(row_ptr_darray,
+					size_t_darray_size(col_ind_darray));
 			if (max_cols < col)
 				max_cols = col;
 		}
@@ -253,26 +256,26 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 	}
 
 	/* trim both dynamic arrays */
-	if (ret == DLX_ESUCCESS &&
-			(size_t_dyn_array_trim(col_ind_dynarray) != 0 ||
-			 size_t_dyn_array_trim(row_ptr_dynarray) != 0   )) {
-		ret = -DLX_EALLOC;
+	if (ret == DLXR_ESUCCESS &&
+			(size_t_darray_trim(col_ind_darray) != 0 ||
+			 size_t_darray_trim(row_ptr_darray) != 0   )) {
+		ret = -DLXR_EALLOC;
 	}
 	/* wrap up, free resources */
-	if (ret == DLX_ESUCCESS) {
+	if (ret == DLXR_ESUCCESS) {
 		if (n) *n = max_cols;
-		csr->col_ind = size_t_dyn_array_export(col_ind_dynarray, NULL);
-		csr->row_ptr = size_t_dyn_array_export(row_ptr_dynarray,
+		csr->col_ind = size_t_darray_export(col_ind_darray, NULL);
+		csr->row_ptr = size_t_darray_export(row_ptr_darray,
 				&csr->row_ptr_size);
 	} else { /* error return */
 		csr->col_ind = NULL;
 		csr->row_ptr = NULL;
 		csr->row_ptr_size = 0;
-		free(size_t_dyn_array_export(col_ind_dynarray, NULL));
-		free(size_t_dyn_array_export(row_ptr_dynarray, NULL));
+		free(size_t_darray_export(col_ind_darray, NULL));
+		free(size_t_darray_export(row_ptr_darray, NULL));
 	}
-	size_t_dyn_array_destroy(col_ind_dynarray);
-	size_t_dyn_array_destroy(row_ptr_dynarray);
+	size_t_darray_destroy(col_ind_darray);
+	size_t_darray_destroy(row_ptr_darray);
 	return ret;
 }
 
@@ -313,7 +316,7 @@ bcsr_to_dlx(struct binary_csr_matrix *csr, struct dlx_matrix *dlx, size_t ncols)
 		free(dlx->nodes);
 		free(dlx->row_off);
 		free(pheaders);
-		return -DLX_EALLOC;
+		return -DLXR_EALLOC;
 	}
 
 	dlx_make_header_row(&dlx->root, dlx->headers, ncols);
@@ -335,7 +338,7 @@ bcsr_to_dlx(struct binary_csr_matrix *csr, struct dlx_matrix *dlx, size_t ncols)
 	dlx->n_row = csr->row_ptr_size - 1;
 
 	free(pheaders);
-	return DLX_ESUCCESS;
+	return DLXR_ESUCCESS;
 }
 
 /* @} END CSR to DLX */
