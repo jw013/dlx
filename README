@@ -10,7 +10,8 @@ Matrix Cover problems using Donald Knuth's Dancing Links (DLX)
 algorithm.  Knuth's paper on DLX is freely available online, in
 particular on his `preprints page
 <http://www-cs-faculty.stanford.edu/~uno/preprints.html>`_ under
-"Dancing Links".
+"Dancing Links".  The paper explains the algorithm itself, so this
+README will focus on the implementation.
 
 Data Types
 ==========
