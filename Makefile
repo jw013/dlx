@@ -1,6 +1,7 @@
 # GNU make
 
-CFLAGS = -std=c99 -pedantic -Wextra -Wall -Wshadow -Wstrict-prototypes -Wcast-align
+CFLAGS = -std=c99 -pedantic -Wextra -Wall -Wshadow -Wstrict-prototypes -Wcast-align\
+	 -Wstrict-aliasing
 CTAGS = ctags
 MAKEDEPFLAG = -M
 

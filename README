@@ -19,10 +19,15 @@ See the comments in ``dlx.c`` for more details on the provided
 functions.  The DLX matrix as described by Knuth is implemented using
 ``struct dlx_node``'s for its elements.  In addition, a header node
 (``struct dlx_hnode``) is required for each column, along with an
-additional root node, which can be another ``dlx_hnode``.  The node
-struct's declared in the header file are provided merely to allow static
-allocation, and the internal fields are meant to be private, i.e. not to
-be accessed by application code.
+additional root node, which can be another ``dlx_hnode``.  ``dlx_hnode``
+"pseudo-inherits" from ``dlx_node``, as the first member of
+``dlx_hnode`` is ``dlx_node``.  The implementation makes frequent use of
+this by casting between pointers to one type to the other.  This is
+legal and does not violate any strict aliasing rules according to my
+best interpretation of the C99 standard.  If you do run into any issues,
+please let me know.  The node struct's declared in the header file are
+provided merely to allow static allocation, and the internal fields are
+meant to be private, i.e. not to be accessed by application code.
 
 The ``struct dlx_srow`` type contains extra information about solution
 that may be useful for hints or shed further light on the path taken to
