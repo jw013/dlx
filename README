@@ -114,5 +114,14 @@ darray
   dynamic array, as in an array whose size dynamically grows as items
   are appended to it; used by the ``dlx_read_matrix`` module.
 
+n\*, N\*
+  number of \*, typically
+
+p\*
+  pointer to \*, typically
+
+sol
+  solution
+
 srow
   solution row

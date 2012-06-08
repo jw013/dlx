@@ -155,7 +155,8 @@ int dlx_unselect_row(struct dlx_node *r);
 
 /**
  * Exact cover DLX algorithm by D. Knuth, with some modification to allow for
- * skipping over a specified number of solutions.
+ * skipping over a specified number of solutions.  It is unknown whether the
+ * algorithm will count duplicate solutions (same set of rows).
  *
  * @param solution
  * 		Make sure to allocate enough space to contain the largest
@@ -164,11 +165,11 @@ int dlx_unselect_row(struct dlx_node *r);
  * 		matrix is modified by the function, but is restored to its
  * 		original state before the function returns.
  * @param k	must be 0; value is used internally.
- * @param pnsol	pointer to a value specifying the number of solutions to look
- * 		for.  The pointed to value will be decremented by the number of
- * 		solutions found, to a minimum of 0, and must be positive
- * 		initally.  The behavior of the function when *pnsol is zero is
- * 		undefined and most likely undesirable.
+ * @param pnsol	pointer to a value specifying the positive number of solutions
+ * 		to look for.  The pointed to value will be decremented by the
+ * 		number of solutions found, to a minimum of 0, and must be
+ * 		positive initally.  The behavior of the function when *pnsol is
+ * 		zero is undefined and most likely undesirable.
  * @return 	size of *pnsol'th solution, or 0 if not that many solutions
  * 		exist.  Note that the 0 case is ambiguous for an empty matrix,
  * 		which has a solution of size 0, but handling that situation is

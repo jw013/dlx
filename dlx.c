@@ -361,25 +361,54 @@ dlx_add_row(struct dlx_node *nodes, struct dlx_hnode **headers, size_t n)
 size_t dlx_exact_cover(struct dlx_srow *solution, struct dlx_hnode *root,
 		size_t k, size_t *pnsol) {
 	/*
-	 * Base cases: Recursion ends when either * matrix is empty (success:
-	 * entire matrix has been covered) * empty column is found (failure:
-	 * uncover-able column) Recursive/branching step: * select column with
-	 * fewest candidate rows * select a row within that column for the
-	 * solution * recurse
+	 * A basic summary of the Dancing Links Algorithm, as described by
+	 * Knuth on page 5 of his DLX paper (link in file header comment).
 	 *
-	 * In addition, every time a solution is found (base case 1), the value
-	 * *pnsol is decremented, and when it reaches 0, an additional base
-	 * case is triggered which terminates the recursion and unrolls the
-	 * entire call stack.  If this 3rd base case is unreachable (because
-	 * not enough solutions exist), then the second base case will be
-	 * reached repeatedly until eventually the entire recursive algorithm
-	 * will run out of branches to take, and the return value of 0 will be
-	 * passed all the way up the call stack.
+	 * Base cases:
+	 *  [1] matrix is empty (success: entire matrix has been covered)
+	 *   	complete termination: no more recursion
+	 *  [2] empty column is found (failure: * uncover-able column)
+	 *   	partial termination: unwind one level of the call stack but
+	 *   	keep recursing into other branches.
+	 * Recursive steps:
+	 *   * select column with fewest candidate rows
+	 *   * select a row within that column for the solution
+	 *   * recurse
+	 *   * if no solution found by recursive step,
+	 *   	try another row in the column until a base case is hit
+	 *
+	 * This function makes the following modification to the Knuth DLX
+	 * algorithm to allow optional skipping of the first few solutions
+	 * found.
+	 *
+	 * Base cases:
+	 *  [1'] matrix is empty (success: entire matrix has been covered)
+	 *   	partial termination: unwind one level of the call stack but
+	 *   	keep recursing into other branches.
+	 *   	decrement the value of *pnsol
+	 *  [2] unchanged
+	 *  [3] *pnsol == 0 (enough solutions found; stop looking)
+	 *  	complete termination: no more recursion
+	 *
+	 * Recursive steps:
+	 *   * ... as before
+	 *   * recurse
+	 *   * if no solution found AND (*pnsol != 0),
+	 *   	try another row in the column ... (as before)
+	 *
+	 * If this new base case [3] is unreachable (because not enough
+	 * solutions exist), then each recursion branch will be terminated by
+	 * base case [2] instead, until eventually the entire search tree is
+	 * exhausted, and the return value of 0 will be passed all the way up
+	 * the call stack.
 	 *
 	 * There is a question of whether or not the same solution (i.e. a set
 	 * of rows where the order does not matter) can be found and counted
 	 * multiple times during the course of the backtracking algorithm.  My
-	 * hunch is the answer is no, but this is not formally proven.
+	 * hunch is the answer is no, but this is not formally proven.  If
+	 * true, then *pnsol will be decremented by the number of *distinct*
+	 * solutions, which makes the *pnsol mechanism much more useful for
+	 * tasks like checking uniqueness.
 	 */
 
 	size_t n = 0;		/* return value, default 0 := no solution */
