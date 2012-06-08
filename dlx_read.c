@@ -211,7 +211,7 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 	struct size_t_darray *col_ind_darray;
 	struct size_t_darray *row_ptr_darray;
 	int c;
-	int ret = DLXR_ESUCCESS;
+	int status = DLXR_ESUCCESS;
 	size_t max_cols = 0;	/* width of widest row so far */
 	size_t col = 0;		/* number of columns in the current row so far */
 	int fl_newline = 1;	/* flag: last character was a newline or
@@ -241,14 +241,14 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 			col = 0;
 			fl_newline = 1;
 		} else { /* invalid char */
-			ret = -DLXR_EDATAERR;
+			status = -DLXR_EDATAERR;
 			break;
 		}
 	}
 
 	if (c == EOF) {
 		if (ferror(stream)) {
-			ret = -DLXR_EIOERR;
+			status = -DLXR_EIOERR;
 		} else if (feof(stream) && !fl_newline) {
 			size_t_darray_append(row_ptr_darray,
 					size_t_darray_size(col_ind_darray));
@@ -259,13 +259,13 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 	}
 
 	/* trim both dynamic arrays */
-	if (ret == DLXR_ESUCCESS &&
+	if (status == DLXR_ESUCCESS &&
 			(size_t_darray_trim(col_ind_darray) != 0 ||
 			 size_t_darray_trim(row_ptr_darray) != 0   )) {
-		ret = -DLXR_EALLOC;
+		status = -DLXR_EALLOC;
 	}
 	/* wrap up, free resources */
-	if (ret == DLXR_ESUCCESS) {
+	if (status == DLXR_ESUCCESS) {
 		if (n) *n = max_cols;
 		csr->col_ind = size_t_darray_export(col_ind_darray, NULL);
 		csr->row_ptr = size_t_darray_export(row_ptr_darray,
@@ -279,7 +279,7 @@ read_bcsr(struct binary_csr_matrix *csr, size_t *n, FILE *stream)
 	}
 	size_t_darray_destroy(col_ind_darray);
 	size_t_darray_destroy(row_ptr_darray);
-	return ret;
+	return status;
 }
 
 /* @} END csr matrix code */
@@ -350,17 +350,17 @@ bcsr_to_dlx(struct binary_csr_matrix *csr, struct dlx_matrix *dlx, size_t ncols)
 int
 dlx_read_matrix(struct dlx_matrix *dlx, FILE *stream)
 {
-	int ret;
+	int status;
 	size_t ncols;
 	struct binary_csr_matrix csr;
 
 	csr.col_ind = NULL;
 	csr.row_ptr = NULL;
-	if ((ret = read_bcsr(&csr, &ncols, stream)) == 0) {
-		ret = bcsr_to_dlx(&csr, dlx, ncols);
+	if ((status = read_bcsr(&csr, &ncols, stream)) == 0) {
+		status = bcsr_to_dlx(&csr, dlx, ncols);
 	}
 
 	free(csr.col_ind);
 	free(csr.row_ptr);
-	return ret;
+	return status;
 }

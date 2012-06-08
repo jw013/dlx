@@ -114,8 +114,5 @@ darray
   dynamic array, as in an array whose size dynamically grows as items
   are appended to it; used by the ``dlx_read_matrix`` module.
 
-ret
-  return value (typically)
-
 srow
   solution row
